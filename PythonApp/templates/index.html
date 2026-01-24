@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spacecraft Mainetenance System</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: #111;
+      color: white;
+    }
+
+    .controller {
+      display: flex;
+      justify-content: center;
+      gap: 80px;
+      margin-top: 40px;
+    }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: 80px 80px 80px;
+      grid-template-rows: 80px 80px 80px;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .key, .btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 12px;
+      border: none;
+      font-size: 28px;
+      background: #333;
+      color: white;
+      cursor: pointer;
+      transition: 0.1s;
+    }
+
+    .active {
+      background: #00ff7f !important;
+      color: black;
+      box-shadow: 0 0 15px #00ff7f;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .btn {
+      width: 160px;
+      height: 60px;
+      font-size: 18px;
+    }
+
+  </style>
+</head>
+<body>
+
+<h2>Spacecraft Mainetenance System</h2>
+
+<div class="controller">
+
+  <!-- D-PAD -->
+  <div class="dpad">
+    <div></div>
+    <button id="key-w" class="key">W</button>
+    <div></div>
+
+    <button id="key-a" class="key">A</button>
+    <div></div>
+    <button id="key-d" class="key">D</button>
+
+    <div></div>
+    <button id="key-s" class="key">S</button>
+    <div></div>
+  </div>
+
+  <!-- ACTION BUTTONS -->
+  <div class="actions">
+    <button id="solenoidBtn" class="btn">Solenoid</button>
+    <button id="magnetBtn" class="btn">Electromagnetic</button>
+    <button id="wrenchPlusBtn" class="btn">Wrench +5°</button>
+    <button id="wrenchMinusBtn" class="btn">Wrench -5°</button>
+
+  </div>
+
+</div>
+
+<script>
+const socket = io();
+
+function sendCmd(cmd){
+  socket.emit("cmd", cmd);
+}
+
+function activate(el){ el.classList.add("active"); }
+function deactivate(el){ el.classList.remove("active"); }
+
+// --------------------
+// D-PAD SETUP
+// --------------------
+const keys = {
+  "w": {cmd:"UP", el: document.getElementById("key-w")},
+  "a": {cmd:"MOVE_LEFT", el: document.getElementById("key-a")},
+  "s": {cmd:"DOWN", el: document.getElementById("key-s")},
+  "d": {cmd:"MOVE_RIGHT", el: document.getElementById("key-d")}
+};
+
+// --------------------
+// BUTTON REFERENCES
+// --------------------
+const solBtn = document.getElementById("solenoidBtn");
+const magBtn = document.getElementById("magnetBtn");
+const wrenchPlusBtn = document.getElementById("wrenchPlusBtn");
+const wrenchMinusBtn = document.getElementById("wrenchMinusBtn");
+
+let solenoidOn = false;
+let magnetOn = false;
+
+// --------------------
+// CLICK HANDLERS
+// --------------------
+solBtn.onclick = toggleSolenoid;
+magBtn.onclick = toggleMagnet;
+
+wrenchPlusBtn.onclick = () => triggerWrench("WRENCH_RIGHT", wrenchPlusBtn);
+wrenchMinusBtn.onclick = () => triggerWrench("WRENCH_LEFT", wrenchMinusBtn);
+
+// --------------------
+// KEYBOARD HANDLING
+// --------------------
+document.addEventListener("keydown", e => {
+  if(e.repeat) return;
+  const k = e.key.toLowerCase();
+
+  // WASD movement
+  if(keys[k]){
+    activate(keys[k].el);
+    sendCmd(keys[k].cmd);
+  }
+
+  // Solenoid (Q)
+  if(k === "q") toggleSolenoid();
+
+  // Magnet (E)
+  if(k === "e") toggleMagnet();
+
+  // Wrench + (R)
+  if(k === "r") triggerWrench("WRENCH_RIGHT", wrenchPlusBtn);
+
+  // Wrench - (F)
+  if(k === "f") triggerWrench("WRENCH_LEFT", wrenchMinusBtn);
+});
+
+document.addEventListener("keyup", e => {
+  const k = e.key.toLowerCase();
+
+  if(keys[k]){
+    deactivate(keys[k].el);
+    if(k === "a" || k === "d") sendCmd("MOVE_STOP");
+  }
+});
+
+// --------------------
+// FUNCTIONS
+// --------------------
+function toggleSolenoid(){
+  solenoidOn = !solenoidOn;
+  solBtn.classList.toggle("active", solenoidOn);
+  sendCmd(solenoidOn ? "SOLENOID_ON" : "SOLENOID_OFF");
+}
+
+function toggleMagnet(){
+  magnetOn = !magnetOn;
+  magBtn.classList.toggle("active", magnetOn);
+  sendCmd(magnetOn ? "MAGNET_ON" : "MAGNET_OFF");
+}
+
+let wrenchBusy = false;
+
+function triggerWrench(cmd, btn){
+  if(wrenchBusy) return;   // block repeated presses
+
+  wrenchBusy = true;
+  activate(btn);
+  sendCmd(cmd);
+
+  setTimeout(() => {
+    deactivate(btn);
+    wrenchBusy = false;
+  }, 200);   // highlight duration
+}
+
+</script>
+
+
+</body>
+</html>
+
